@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Goal Progress</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h2>Progress Toward Goals (%)</h2>
+<canvas id="chart" width="900" height="450"></canvas>
+
+<script>
+const SHEET_URL = "PASTE_YOUR_CSV_URL_HERE";
+
+fetch(SHEET_URL + "&t=" + Date.now())
+  .then(res => res.text())
+  .then(csv => {
+    const rows = csv.trim().split("\n").map(r => r.split(","));
+
+    const names = rows[0].slice(1);
+    const goals = rows[1].slice(1).map(Number);
+    const dataRows = rows.slice(2);
+
+    const dates = dataRows.map(r => r[0]);
+    const nPoints = dates.length;
+
+    const datasets = [];
+
+    names.forEach((name, i) => {
+      const rawValues = dataRows.map(r => {
+        const v = parseFloat(r[i + 1]);
+        return isNaN(v) ? null : v;
+      });
+
+      const baseline = rawValues.find(v => v !== null);
+      const goal = goals[i];
+
+      if (baseline === undefined || goal === baseline) {
+        return;
+      }
+
+      // Progress data (can overshoot)
+      const progress = rawValues.map(v => {
+        if (v === null) return null;
+        return (v - baseline) / (goal - baseline) * 100;
+      });
+
+      // Main progress line
+      const progressDataset = {
+        label: name,
+        data: progress,
+        borderWidth: 2,
+        spanGaps: true
+      };
+
+      datasets.push(progressDataset);
+
+      // Goal trajectory line (0% → 100%)
+      const goalLine = Array.from({ length: nPoints }, (_, idx) =>
+        (idx / (nPoints - 1)) * 100
+      );
+
+      datasets.push({
+        label: name + " goal",
+        data: goalLine,
+        borderWidth: 2,
+        borderDash: [6, 6],
+        pointRadius: 0,
+        tension: 0,
+        spanGaps: true
+      });
+    });
+
+    new Chart(document.getElementById("chart"), {
+      type: "line",
+      data: {
+        labels: dates,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: "nearest",
+          intersect: false
+        },
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: "Progress (%)"
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              filter: item => !item.text.endsWith(" goal")
+            }
+          }
+        }
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
