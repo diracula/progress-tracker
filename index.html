@@ -11,7 +11,21 @@
 <canvas id="chart" width="900" height="450"></canvas>
 
 <script>
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT4iNJsJrgRh_JtqIBnTLPQXUPS0d15rAbZDF3QHX7iYZd6Oe7aBMdt7faX1ZRL3x9tbD0R7H05Ahaj/pub?gid=1922078669&output=csv";
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vT4iNJsJrgRh_JtqIBnTLPQXUPS0d15rAbZDF3QHX7iYZd6Oe7aBMdt7faX1ZRL3x9tbD0R7H05Ahaj/pub?gid=1922078669&output=csv";
+
+// Generate all dates in 2026
+function allDates2026() {
+  const dates = [];
+  let d = new Date("2026-01-01");
+  const end = new Date("2026-12-31");
+
+  while (d <= end) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
 
 fetch(SHEET_URL + "&t=" + Date.now())
   .then(res => res.text())
@@ -22,53 +36,51 @@ fetch(SHEET_URL + "&t=" + Date.now())
     const goals = rows[1].slice(1).map(Number);
     const dataRows = rows.slice(2);
 
-    const dates = dataRows.map(r => r[0]);
-    const nPoints = dates.length;
+    // Build map: date -> values[]
+    const dataByDate = {};
+    dataRows.forEach(r => {
+      const date = r[0];
+      if (!date) return;
+      dataByDate[date] = r.slice(1).map(v =>
+        v === "" ? null : Number(v)
+      );
+    });
 
+    const dates = allDates2026();
     const datasets = [];
 
     names.forEach((name, i) => {
-      const rawValues = dataRows.map(r => {
-        const v = parseFloat(r[i + 1]);
-        return isNaN(v) ? null : v;
-      });
+      const rawValues = dates.map(d =>
+        dataByDate[d]?.[i] ?? null
+      );
 
       const baseline = rawValues.find(v => v !== null);
       const goal = goals[i];
 
-      if (baseline === undefined || goal === baseline) {
-        return;
-      }
+      if (baseline === undefined || goal === baseline) return;
 
-      // Progress data (can overshoot)
-      const progress = rawValues.map(v => {
-        if (v === null) return null;
-        return (v - baseline) / (goal - baseline) * 100;
-      });
+      const progress = rawValues.map(v =>
+        v === null ? null : (v - baseline) / (goal - baseline) * 100
+      );
 
-      // Main progress line
-      const progressDataset = {
+      // Progress line
+      datasets.push({
         label: name,
         data: progress,
         borderWidth: 2,
         spanGaps: true
-      };
+      });
 
-      datasets.push(progressDataset);
-
-      // Goal trajectory line (0% → 100%)
-      const goalLine = Array.from({ length: nPoints }, (_, idx) =>
-        (idx / (nPoints - 1)) * 100
-      );
-
+      // Ideal goal line (0 → 100 across year)
       datasets.push({
         label: name + " goal",
-        data: goalLine,
-        borderWidth: 2,
+        data: dates.map((_, idx) =>
+          idx / (dates.length - 1) * 100
+        ),
         borderDash: [6, 6],
+        borderWidth: 2,
         pointRadius: 0,
-        tension: 0,
-        spanGaps: true
+        tension: 0
       });
     });
 
@@ -76,21 +88,26 @@ fetch(SHEET_URL + "&t=" + Date.now())
       type: "line",
       data: {
         labels: dates,
-        datasets: datasets
+        datasets
       },
       options: {
         responsive: true,
-        interaction: {
-          mode: "nearest",
-          intersect: false
-        },
         scales: {
+          x: {
+            ticks: {
+              maxTicksLimit: 12
+            }
+          },
           y: {
             title: {
               display: true,
               text: "Progress (%)"
             }
           }
+        },
+        interaction: {
+          mode: "nearest",
+          intersect: false
         },
         plugins: {
           legend: {
