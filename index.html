@@ -11,7 +11,7 @@
 <canvas id="chart" width="900" height="450"></canvas>
 
 <script>
-const SHEET_URL = "PASTE_YOUR_CSV_URL_HERE";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT4iNJsJrgRh_JtqIBnTLPQXUPS0d15rAbZDF3QHX7iYZd6Oe7aBMdt7faX1ZRL3x9tbD0R7H05Ahaj/pubhtml?gid=1922078669&single=true";
 
 fetch(SHEET_URL + "&t=" + Date.now())
   .then(res => res.text())
