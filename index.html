@@ -25,6 +25,28 @@ function allDates2026() {
   return dates;
 }
 
+// Custom plugin to draw the "Today" vertical line
+const todayLinePlugin = {
+  id: 'todayLine',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const xPos = x.getPixelForValue(todayStr);
+
+    if (xPos >= chart.chartArea.left && xPos <= chart.chartArea.right) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(150, 150, 150, 0.7)'; // Grey dashed line
+      ctx.moveTo(xPos, top);
+      ctx.lineTo(xPos, bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+
 fetch(SHEET_URL + "&t=" + Date.now())
   .then(res => res.text())
   .then(csv => {
@@ -92,33 +114,42 @@ fetch(SHEET_URL + "&t=" + Date.now())
         labels: allDates,
         datasets
       },
+      plugins: [todayLinePlugin], // Register the "Today" line plugin
       options: {
         responsive: true,
+        layout: {
+          padding: {
+            top: 25,
+            left: 25,
+            right: 20
+          }
+        },
         interaction: { mode: "nearest", intersect: false },
         scales: {
           x: {
             ticks: {
-              autoSkip: false, // Prevents Chart.js from hiding your specific dates
+              autoSkip: false, 
               callback: function(val, idx) {
-                const d = allDates[idx];
-                // Show if it's the 1st of the month or the absolute last day
-                if (d.endsWith("-01") || d === "2026-12-31") {
-                  return d;
+                const dStr = allDates[idx];
+                if (dStr.endsWith("-01") || dStr === "2026-12-31") {
+                  const d = new Date(dStr);
+                  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }
                 return null;
               }
             }
           },
           y: {
+            max: 110,
             title: { display: true, text: "Progress (%)" }
           }
         },
         plugins: {
           legend: {
-            position: "top", // Changed to top for standard padding behavior
+            position: "chartArea",
             align: "start",
             labels: {
-              padding: 20, // Adds space between the legend and the chart area
+              padding: 10,
               filter: item => !item.text.endsWith(" benchmark")
             }
           }
