@@ -25,7 +25,6 @@ function allDates2026() {
   return dates;
 }
 
-// Custom plugin to draw the "Today" vertical line
 const todayLinePlugin = {
   id: 'todayLine',
   afterDatasetsDraw(chart) {
@@ -38,7 +37,7 @@ const todayLinePlugin = {
       ctx.beginPath();
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = 'rgba(150, 150, 150, 0.7)'; // Grey dashed line
+      ctx.strokeStyle = 'rgba(150, 150, 150, 0.7)';
       ctx.moveTo(xPos, top);
       ctx.lineTo(xPos, bottom);
       ctx.stroke();
@@ -114,21 +113,20 @@ fetch(SHEET_URL + "&t=" + Date.now())
         labels: allDates,
         datasets
       },
-      plugins: [todayLinePlugin], // Register the "Today" line plugin
+      plugins: [todayLinePlugin],
       options: {
         responsive: true,
         layout: {
           padding: {
-            top: 25,
-            left: 25,
-            right: 20
+            top: 10 // Space between H2 header and the legend
           }
         },
         interaction: { mode: "nearest", intersect: false },
         scales: {
           x: {
             ticks: {
-              autoSkip: false, 
+              autoSkip: true,
+              maxRotation: 0,
               callback: function(val, idx) {
                 const dStr = allDates[idx];
                 if (dStr.endsWith("-01") || dStr === "2026-12-31") {
@@ -140,16 +138,16 @@ fetch(SHEET_URL + "&t=" + Date.now())
             }
           },
           y: {
-            max: 110,
+            beginAtZero: true,
+            max: 100, // Capped at exactly 100%
             title: { display: true, text: "Progress (%)" }
           }
         },
         plugins: {
           legend: {
-            position: "chartArea",
-            align: "start",
+            position: "top", // Default center-top
             labels: {
-              padding: 10,
+              padding: 20,   // Space between the legend items and the chart lines
               filter: item => !item.text.endsWith(" benchmark")
             }
           }
