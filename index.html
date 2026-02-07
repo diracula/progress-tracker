@@ -7,7 +7,7 @@
 </head>
 <body>
 
-<h2>Well Wishes and Wants: 2026 Goals</h2>
+<h2>Well Wishes and Wants: 2026 Goals (%)</h2>
 <canvas id="chart" width="900" height="450"></canvas>
 
 <script>
@@ -50,41 +50,48 @@ fetch(SHEET_URL + "&t=" + Date.now())
   .then(res => res.text())
   .then(csv => {
     const rows = csv.trim().split("\n").map(r => r.split(","));
-    const headers = rows[0].map(h => h.trim().toLowerCase());
+    const headers = rows[0].map(h => h.trim()); // Original case for names
+    const headersLower = headers.map(h => h.toLowerCase());
     const body = rows.slice(1);
     const allDates = allDates2026();
     const datasets = [];
 
-    for (let c = 0; c < headers.length; c++) {
-      if (!headers[c].includes("date")) continue;
+    // Loop through headers looking for 'date'
+    for (let c = 0; c < headersLower.length; c++) {
+      if (headersLower[c] !== "date") continue;
 
-      let vCol = c + 1;
-      while (vCol < headers.length && headers[vCol] === "") vCol++;
-      if (vCol >= headers.length) continue;
+      // The next column is the Goal Name (e.g., 'Ollie: Weight (kg)')
+      const vCol = c + 1;
+      if (vCol >= headersLower.length) continue;
 
-      const name = rows[0][c].replace(/date/i, "").trim() || "Goal";
-      let goal = null;
+      const goalName = headers[vCol]; 
+      let goalValue = null;
       const valuesByDate = {};
 
       body.forEach(r => {
-        const d = r[c];
+        const d = r[c]?.trim();
         const v = parseFloat(r[vCol]);
         if (!d || isNaN(v)) return;
-        if (d.toLowerCase() === "goal") { goal = v; } 
-        else { valuesByDate[d] = v; }
+
+        if (d.toLowerCase() === "goal") {
+          goalValue = v;
+        } else {
+          valuesByDate[d] = v;
+        }
       });
 
       const rawValues = allDates.map(d => d in valuesByDate ? valuesByDate[d] : null);
       const baseline = rawValues.find(v => v !== null);
       const baselineIndex = rawValues.findIndex(v => v !== null);
 
-      if (baseline === undefined || goal === null || goal === baseline) continue;
+      if (baseline === undefined || goalValue === null || goalValue === baseline) continue;
 
-      const progress = rawValues.map(v => v === null ? null : (v - baseline) / (goal - baseline) * 100);
+      const progress = rawValues.map(v => v === null ? null : (v - baseline) / (goalValue - baseline) * 100);
       const colour = `hsl(${datasets.length * 67 % 360}, 70%, 50%)`;
 
+      // Actual Data Line
       datasets.push({
-        label: name,
+        label: goalName,
         data: progress,
         borderColor: colour,
         backgroundColor: colour,
@@ -92,12 +99,13 @@ fetch(SHEET_URL + "&t=" + Date.now())
         spanGaps: true
       });
 
+      // Benchmark Trajectory
       const goalLine = allDates.map((_, i) =>
         i < baselineIndex ? null : (i - baselineIndex) / (allDates.length - 1 - baselineIndex) * 100
       );
 
       datasets.push({
-        label: name + " benchmark",
+        label: goalName + " benchmark",
         data: goalLine,
         borderColor: colour,
         borderDash: [6, 6],
@@ -117,9 +125,7 @@ fetch(SHEET_URL + "&t=" + Date.now())
       options: {
         responsive: true,
         layout: {
-          padding: {
-            top: 10 // Space between H2 header and the legend
-          }
+          padding: { top: 10 }
         },
         interaction: { mode: "nearest", intersect: false },
         scales: {
@@ -139,15 +145,15 @@ fetch(SHEET_URL + "&t=" + Date.now())
           },
           y: {
             beginAtZero: true,
-            max: 100, // Capped at exactly 100%
+            max: 100,
             title: { display: true, text: "Progress (%)" }
           }
         },
         plugins: {
           legend: {
-            position: "top", // Default center-top
+            position: "top",
             labels: {
-              padding: 20,   // Space between the legend items and the chart lines
+              padding: 20,
               filter: item => !item.text.endsWith(" benchmark")
             }
           }
