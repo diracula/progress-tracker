@@ -14,7 +14,6 @@
 const SHEET_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT4iNJsJrgRh_JtqIBnTLPQXUPS0d15rAbZDF3QHX7iYZd6Oe7aBMdt7faX1ZRL3x9tbD0R7H05Ahaj/pub?gid=1922078669&output=csv";
 
-// Generate all days in 2026
 function allDates2026() {
   const dates = [];
   let d = new Date("2026-01-01");
@@ -32,22 +31,17 @@ fetch(SHEET_URL + "&t=" + Date.now())
     const rows = csv.trim().split("\n").map(r => r.split(","));
     const headers = rows[0].map(h => h.trim().toLowerCase());
     const body = rows.slice(1);
-
     const allDates = allDates2026();
-
     const datasets = [];
-    const colours = [];
 
     for (let c = 0; c < headers.length; c++) {
       if (!headers[c].includes("date")) continue;
 
-      // Find next non-empty header as value column
       let vCol = c + 1;
       while (vCol < headers.length && headers[vCol] === "") vCol++;
       if (vCol >= headers.length) continue;
 
       const name = rows[0][c].replace(/date/i, "").trim() || "Goal";
-
       let goal = null;
       const valuesByDate = {};
 
@@ -55,27 +49,17 @@ fetch(SHEET_URL + "&t=" + Date.now())
         const d = r[c];
         const v = parseFloat(r[vCol]);
         if (!d || isNaN(v)) return;
-
-        if (d.toLowerCase() === "goal") {
-          goal = v;
-        } else {
-          valuesByDate[d] = v;
-        }
+        if (d.toLowerCase() === "goal") { goal = v; } 
+        else { valuesByDate[d] = v; }
       });
 
-      const rawValues = allDates.map(d =>
-        d in valuesByDate ? valuesByDate[d] : null
-      );
-
+      const rawValues = allDates.map(d => d in valuesByDate ? valuesByDate[d] : null);
       const baseline = rawValues.find(v => v !== null);
       const baselineIndex = rawValues.findIndex(v => v !== null);
 
       if (baseline === undefined || goal === null || goal === baseline) continue;
 
-      const progress = rawValues.map(v =>
-        v === null ? null : (v - baseline) / (goal - baseline) * 100
-      );
-
+      const progress = rawValues.map(v => v === null ? null : (v - baseline) / (goal - baseline) * 100);
       const colour = `hsl(${datasets.length * 67 % 360}, 70%, 50%)`;
 
       datasets.push({
@@ -87,11 +71,8 @@ fetch(SHEET_URL + "&t=" + Date.now())
         spanGaps: true
       });
 
-      // Goal trajectory
       const goalLine = allDates.map((_, i) =>
-        i < baselineIndex
-          ? null
-          : (i - baselineIndex) / (allDates.length - 1 - baselineIndex) * 100
+        i < baselineIndex ? null : (i - baselineIndex) / (allDates.length - 1 - baselineIndex) * 100
       );
 
       datasets.push({
@@ -113,32 +94,32 @@ fetch(SHEET_URL + "&t=" + Date.now())
       },
       options: {
         responsive: true,
-        interaction: {
-          mode: "nearest",
-          intersect: false
-        },
+        interaction: { mode: "nearest", intersect: false },
         scales: {
           x: {
             ticks: {
-              callback: (val, idx) => {
+              autoSkip: false, // Prevents Chart.js from hiding your specific dates
+              callback: function(val, idx) {
                 const d = allDates[idx];
-                return d.endsWith("-01") || d === "2026-12-31" ? d : "";
+                // Show if it's the 1st of the month or the absolute last day
+                if (d.endsWith("-01") || d === "2026-12-31") {
+                  return d;
+                }
+                return null;
               }
             }
           },
           y: {
-            title: {
-              display: true,
-              text: "Progress (%)"
-            }
+            title: { display: true, text: "Progress (%)" }
           }
         },
         plugins: {
           legend: {
-            position: "chartArea",
+            position: "top", // Changed to top for standard padding behavior
             align: "start",
             labels: {
-              filter: item => !item.text.endsWith(" goal")
+              padding: 20, // Adds space between the legend and the chart area
+              filter: item => !item.text.endsWith(" benchmark")
             }
           }
         }
