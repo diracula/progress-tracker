@@ -16,11 +16,11 @@ const SHEET_URL =
 
 function allDates2026() {
   const dates = [];
-  let d = new Date("2026-01-01");
-  const end = new Date("2026-12-31");
+  let d = new Date(Date.UTC(2026, 0, 1));
+  const end = new Date(Date.UTC(2026, 11, 31));
   while (d <= end) {
     dates.push(d.toISOString().slice(0, 10));
-    d.setDate(d.getDate() + 1);
+    d.setUTCDate(d.getUTCDate() + 1);
   }
   return dates;
 }
@@ -29,9 +29,10 @@ const todayLinePlugin = {
   id: 'todayLine',
   afterDatasetsDraw(chart) {
     const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const todayStr = todayUTC.toISOString().slice(0, 10);
     const xPos = x.getPixelForValue(todayStr);
-
     if (xPos >= chart.chartArea.left && xPos <= chart.chartArea.right) {
       ctx.save();
       ctx.beginPath();
@@ -50,32 +51,34 @@ fetch(SHEET_URL + "&t=" + Date.now())
   .then(res => res.text())
   .then(csv => {
     const rows = csv.trim().split("\n").map(r => r.split(","));
-    const headers = rows[0].map(h => h.trim()); // Original case for names
+    const headers = rows[0].map(h => h.trim());
     const headersLower = headers.map(h => h.toLowerCase());
     const body = rows.slice(1);
     const allDates = allDates2026();
     const datasets = [];
 
-    // Loop through headers looking for 'date'
     for (let c = 0; c < headersLower.length; c++) {
       if (headersLower[c] !== "date") continue;
-
-      // The next column is the Goal Name (e.g., 'Ollie: Weight (kg)')
       const vCol = c + 1;
       if (vCol >= headersLower.length) continue;
 
-      const goalName = headers[vCol]; 
+      const goalName = headers[vCol];
       let goalValue = null;
       const valuesByDate = {};
 
       body.forEach(r => {
-        const d = r[c]?.trim();
+        const rawDate = r[c]?.trim();
         const v = parseFloat(r[vCol]);
-        if (!d || isNaN(v)) return;
+        if (!rawDate || isNaN(v)) return;
 
-        if (d.toLowerCase() === "goal") {
+        if (rawDate.toLowerCase() === "goal") {
           goalValue = v;
         } else {
+          const parsed = new Date(rawDate);
+          if (isNaN(parsed)) return;
+          const d = new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()))
+            .toISOString()
+            .slice(0, 10);
           valuesByDate[d] = v;
         }
       });
@@ -89,7 +92,6 @@ fetch(SHEET_URL + "&t=" + Date.now())
       const progress = rawValues.map(v => v === null ? null : (v - baseline) / (goalValue - baseline) * 100);
       const colour = `hsl(${datasets.length * 67 % 360}, 70%, 50%)`;
 
-      // Actual Data Line
       datasets.push({
         label: goalName,
         data: progress,
@@ -99,7 +101,6 @@ fetch(SHEET_URL + "&t=" + Date.now())
         spanGaps: true
       });
 
-      // Benchmark Trajectory
       const goalLine = allDates.map((_, i) =>
         i < baselineIndex ? null : (i - baselineIndex) / (allDates.length - 1 - baselineIndex) * 100
       );
